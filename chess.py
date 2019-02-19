@@ -6,6 +6,7 @@ todo:
 - Implement an uci parser
 - Fix todos in logic code
 - Up to now only pseudo legal moves are provided -> check for legality
+- Undo / Redo
 """
 
 UNIVERSE = 0xffffffffffffffff
@@ -484,3 +485,11 @@ class Board:
             moves |= traverse_diagonal(queens, diagonal, occupied, enemies)
 
         return moves
+
+    def move(self, sq, to):
+        pass
+
+
+class Move:
+    def __init__(self):
+        pass
