@@ -139,7 +139,24 @@ class TestMovements(BaseTest):
         assert b.gen_moves(0) == (RANK_5 | D_LINE) & ~b.all_black_pieces
 
 
-TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestMovements(), TestFENNotation(), ]
+class TestEnPassant(BaseTest):
+    def __init__(self):
+        super(TestEnPassant, self).__init__(name="Test EnPassant")
+
+    def run(self):
+        from chess import Board
+
+        b = Board("rnbqkbnr/pppppppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1")
+        assert b.ep_move
+        assert b.gen_moves(0) & int("00011000", 2) << 16
+
+        b = Board("rnbqkbnr/pppppppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1")
+        assert not b.ep_move
+        assert b.gen_moves(0) & int("00010000", 2) << 16
+
+
+
+TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestMovements(), TestFENNotation(), TestEnPassant(), ]
 
 
 def run_all_tests():
