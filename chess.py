@@ -9,12 +9,12 @@ todo:
 - Undo / Redo
 """
 
+from itertools import groupby
+
 UNIVERSE = 0xffffffffffffffff
 EMPTY = 0
 
 B_BOARD = int
-
-PIECE_TYPES = [PAWN, KNIGHT, KING, QUEEN, BISHOP, ROOK] = range(1, 7)
 
 H_LINE = 0x0101010101010101
 G_LINE = H_LINE << 1
@@ -34,15 +34,6 @@ RANK_3 = RANK_4 << 8
 RANK_2 = RANK_3 << 8
 RANK_1 = RANK_2 << 8
 
-TYPES = {
-    1: 'p', 'p': 1,
-    2: 'n', 'n': 2,
-    3: 'k', 'k': 3,
-    4: 'q', 'q': 4,
-    5: 'b', 'b': 5,
-    6: 'r', 'r': 6
-}
-
 SYMBOLS = {
     "R": u"♖", "r": u"♜",
     "N": u"♘", "n": u"♞",
@@ -53,12 +44,7 @@ SYMBOLS = {
 }
 
 SQUARE_MASKS = [1 << sq for sq in range(64)]
-
-WHITE = 1
-BLACK = 0
-
 SQUARE_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-
 BASEBOARD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
@@ -245,21 +231,20 @@ class Board:
         """
         new game
         """
-        # White pieces
-        self.b_king = 0
-        self.b_pawns = 0
-        self.b_queens = 0
-        self.b_bishops = 0
-        self.b_knights = 0
-        self.b_rooks = 0
-
-        # Black pieces
-        self.w_king = 0
-        self.w_pawns = 0
-        self.w_queens = 0
-        self.w_bishops = 0
-        self.w_knights = 0
-        self.w_rooks = 0
+        self.PIECES = {
+            'p': 0,
+            'b': 0,
+            'n': 0,
+            'k': 0,
+            'q': 0,
+            'r': 0,
+            'P': 0,
+            'B': 0,
+            'N': 0,
+            'K': 0,
+            'Q': 0,
+            'R': 0
+        }
 
         # state
         self.active_player = 1
@@ -275,41 +260,16 @@ class Board:
         self.from_fen(fen)
 
     def __repr__(self):
-        return b_board_to_str(self.all_pieces)
+        return self.to_fen()
 
     def __str__(self):
-        def populate(li, pieces, symbol):
-            for k in _scan_lsb_first(pieces):
-                li[63 - k] = SYMBOLS[symbol]
-
         def name_bar() -> str:
             return '{offset}{row}{offset}\n'.format(offset=2 * ' ', row=' '.join(SQUARE_NAMES))
 
         s = 64 * ['.']
-
-        # kings
-        populate(s, self.w_king, 'K')
-        populate(s, self.b_king, 'k')
-
-        # pawns
-        populate(s, self.w_pawns, 'P')
-        populate(s, self.b_pawns, 'p')
-
-        # queens
-        populate(s, self.w_queens, 'Q')
-        populate(s, self.b_queens, 'q')
-
-        # knights
-        populate(s, self.w_knights, 'N')
-        populate(s, self.b_knights, 'n')
-
-        # bishops
-        populate(s, self.w_bishops, 'B')
-        populate(s, self.b_bishops, 'b')
-
-        # rooks
-        populate(s, self.w_rooks, 'R')
-        populate(s, self.b_rooks, 'r')
+        for symbol, p in self.PIECES.items():
+            for k in _scan_lsb_first(p):
+                s[63 - k] = SYMBOLS[symbol]
 
         t = name_bar()
         for i in range(8):
@@ -318,22 +278,20 @@ class Board:
         return t
 
     def reset(self):
-        # White pieces
-        self.b_king = 0
-        self.b_pawns = 0
-        self.b_queens = 0
-        self.b_bishops = 0
-        self.b_knights = 0
-        self.b_rooks = 0
-
-        # Black pieces
-        self.w_king = 0
-        self.w_pawns = 0
-        self.w_queens = 0
-        self.w_bishops = 0
-        self.w_knights = 0
-        self.w_rooks = 0
-
+        self.PIECES = {
+            'p': 0,
+            'b': 0,
+            'n': 0,
+            'k': 0,
+            'q': 0,
+            'r': 0,
+            'P': 0,
+            'B': 0,
+            'N': 0,
+            'K': 0,
+            'Q': 0,
+            'R': 0
+        }
         # state
         self.active_player = 1
         self.black_king_side_castle_right = True
@@ -345,43 +303,21 @@ class Board:
         self.move_number = 0
 
     def from_fen(self, text):
-        # todo make more robust
-
         # reset all values
         self.reset()
 
         sq = 1 << 63
 
         text = text.split(' ')
+        if len(text) != 6:
+            raise ValueError("Invalid FEN string supplied")
+
         pieces = text[0]
         for symbol in pieces:
             if symbol.isdigit():
                 sq = sq >> int(symbol)
-            elif symbol in SYMBOLS.keys():
-                if symbol == 'p':
-                    self.b_pawns |= sq
-                elif symbol == 'P':
-                    self.w_pawns |= sq
-                elif symbol == 'r':
-                    self.b_rooks |= sq
-                elif symbol == 'R':
-                    self.w_rooks |= sq
-                elif symbol == 'n':
-                    self.b_knights |= sq
-                elif symbol == 'N':
-                    self.w_knights |= sq
-                elif symbol == 'b':
-                    self.b_bishops |= sq
-                elif symbol == 'B':
-                    self.w_bishops |= sq
-                elif symbol == 'q':
-                    self.b_queens |= sq
-                elif symbol == 'Q':
-                    self.w_queens |= sq
-                elif symbol == 'k':
-                    self.b_king |= sq
-                elif symbol == 'K':
-                    self.w_king |= sq
+            elif symbol in self.PIECES:
+                self.PIECES[symbol] |= sq
                 sq = sq >> 1
         self.active_player = True if text[1] == 'w' else False
         self.black_king_side_castle_right = 'k' in text[2]
@@ -393,38 +329,58 @@ class Board:
         self.move_number = int(text[5])
 
     def to_fen(self):
-        # todo implement
-        pass
+        "8/8/8/8/3r4/8/8/8 b KQkq - 1 2"
+        s = 64 * ['.']
+
+        # place all piece symbols
+        for symbol, p in self.PIECES.items():
+            for k in _scan_lsb_first(p):
+                s[63 - k] = symbol
+
+        # insert /
+        for i in range(7):
+            s.insert(8 + i * 8 + i, '/')
+
+        # replace .
+        s = [str(len(list(s))) if _ else ''.join(list(s)) for _, s in groupby(s, key=lambda x: x == '.')]
+
+        # append additional state information
+        s.append(' w ' if self.active_player else ' b ')
+        s.append('K' if self.white_king_side_castle_right else None)
+        s.append('Q' if self.white_queen_side_castle_right else None)
+        s.append('k' if self.black_king_side_castle_right else None)
+        s.append('q' if self.black_queen_side_castle_right else None)
+        s.append(' {} '.format(self.ep_move if self.ep_move else "-"))
+        s.append('{} '.format(self.half_move_clock))
+        s.append('{}'.format(self.move_number))
+
+        return ''.join(s)
 
     @property
-    def all_white_pieces(self):
-        return self.w_king | self.w_pawns | self.w_bishops | self.w_knights | self.w_queens | self.w_rooks
+    def all_white_pieces(self) -> int:
+        pieces = 0
+        for symbol, val in self.PIECES.items():
+            if symbol.isupper():
+                pieces |= val
+        return pieces
 
     @property
-    def all_black_pieces(self):
-        return self.b_king | self.b_pawns | self.b_bishops | self.b_knights | self.b_queens | self.b_rooks
+    def all_black_pieces(self) -> int:
+        pieces = 0
+        for symbol, val in self.PIECES.items():
+            if symbol.islower():
+                pieces |= val
+        return pieces
 
     @property
-    def all_pieces(self):
+    def all_pieces(self) -> int:
         return self.all_black_pieces | self.all_white_pieces
 
-    def pieces_of_type(self, p_type: str, player: bool):
-        if p_type not in TYPES:
+    def pieces_of_type(self, p_type: str):
+        if p_type not in self.PIECES:
             raise ValueError('Invalid piece type!')
 
-        if p_type == 'k' or p_type == KING:
-            p = self.w_king if player else self.b_king
-        elif p_type == 'p' or p_type == PAWN:
-            p = self.w_pawns if player else self.b_pawns
-        elif p_type == 'q' or p_type == QUEEN:
-            p = self.w_queens if player else self.b_queens
-        elif p_type == 'b' or p_type == BISHOP:
-            p = self.w_bishops if player else self.b_bishops
-        elif p_type == 'n' or p_type == KNIGHT:
-            p = self.w_knights if player else self.b_knights
-        else:  # rook
-            p = self.w_rooks if player else self.b_rooks
-        return p
+        return self.PIECES[p_type]
 
     def gen_moves(self, player, exclude_attacked_fields=False):
         enemies = self.all_black_pieces if player else self.all_white_pieces
@@ -432,7 +388,7 @@ class Board:
         moves = 0
 
         # PAWNS
-        pawns = self.w_pawns if player else self.b_pawns
+        pawns = self.PIECES['P'] if player else self.PIECES['p']
 
         # one step
         mov_v = _shift_up if player else _shift_down
@@ -453,7 +409,7 @@ class Board:
         # todo en passant
 
         # KING
-        king = self.w_king if player else self.b_king
+        king = self.PIECES['K'] if player else self.PIECES['k']
         attacked_fields = 0 if exclude_attacked_fields else self.gen_moves(not player, True)
 
         for mov in KING_MOVS:
@@ -462,22 +418,22 @@ class Board:
         # todo castle
 
         # KNIGHTS
-        knights = self.w_knights if player else self.b_knights
+        knights = self.PIECES['N'] if player else self.PIECES['n']
         for mov in KNIGHT_MOVS:
             moves |= mov(knights) & ~occupied
 
         # ROOKS
-        rooks = self.w_rooks if player else self.b_rooks
+        rooks = self.PIECES['R'] if player else self.PIECES['r']
         for shift in LINE_MOVS:
             moves |= traverse_line(rooks, shift, occupied, enemies)
 
         # BISHOPS
-        bishops = self.w_bishops if player else self.b_bishops
+        bishops = self.PIECES['B'] if player else self.PIECES['b']
         for diagonal in DIAGONALS:
             moves |= traverse_diagonal(bishops, diagonal, occupied, enemies)
 
         # QUEENS
-        queens = self.w_queens if player else self.b_queens
+        queens = self.PIECES['Q'] if player else self.PIECES['q']
         for shift in LINE_MOVS:
             moves |= traverse_line(queens, shift, occupied, enemies)
 

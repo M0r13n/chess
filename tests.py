@@ -79,32 +79,32 @@ class TestFENNotation(BaseTest):
         assert b.half_move_clock == 0
         assert b.all_black_pieces == int('1111111111111111', 2) << 48
         assert b.all_white_pieces == int('1111111111111111', 2)
-        assert b.b_pawns == RANK_2
-        assert b.w_pawns == RANK_7
-        assert b.b_king == int('00001000', 2) << 56
-        assert b.w_king == int('00001000', 2)
-        assert b.b_queens == int('00010000', 2) << 56
-        assert b.w_queens == int('00010000', 2)
-        assert b.b_knights == int('01000010', 2) << 56
-        assert b.w_knights == int('01000010', 2)
-        assert b.b_bishops == int('00100100', 2) << 56
-        assert b.w_bishops == int('00100100', 2)
-        assert b.b_rooks == int('10000001', 2) << 56
-        assert b.w_rooks == int('10000001', 2)
+        assert b.PIECES['p'] == RANK_2
+        assert b.PIECES['P'] == RANK_7
+        assert b.PIECES['k'] == int('00001000', 2) << 56
+        assert b.PIECES['K'] == int('00001000', 2)
+        assert b.PIECES['q'] == int('00010000', 2) << 56
+        assert b.PIECES['Q'] == int('00010000', 2)
+        assert b.PIECES['n'] == int('01000010', 2) << 56
+        assert b.PIECES['N'] == int('01000010', 2)
+        assert b.PIECES['b'] == int('00100100', 2) << 56
+        assert b.PIECES['B'] == int('00100100', 2)
+        assert b.PIECES['r'] == int('10000001', 2) << 56
+        assert b.PIECES['R'] == int('10000001', 2)
 
         # whites moves pawn two steps
         b.from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
         assert b.ep_move == "e3"
         assert b.active_player == 0
-        assert b.w_pawns == int('00001000', 2) << 24 | int('11110111', 2) << 8
+        assert b.PIECES['P'] == int('00001000', 2) << 24 | int('11110111', 2) << 8
 
         # black also moves a pawn two steps
         b.from_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2")
         assert b.ep_move == "c6"
         assert b.move_number == 2
         assert b.active_player == 1
-        assert b.w_pawns == int('00001000', 2) << 24 | int('11110111', 2) << 8
-        assert b.b_pawns == int('00100000', 2) << 32 | int('11011111', 2) << 48
+        assert b.PIECES['P'] == int('00001000', 2) << 24 | int('11110111', 2) << 8
+        assert b.PIECES['p'] == int('00100000', 2) << 32 | int('11011111', 2) << 48
 
         # whites moves its knight
         b.from_fen("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2")
@@ -114,9 +114,14 @@ class TestFENNotation(BaseTest):
         assert b.black_queen_side_castle_right
         assert b.white_king_side_castle_right
         assert b.white_queen_side_castle_right
-        assert b.w_pawns == int('00001000', 2) << 24 | int('11110111', 2) << 8
-        assert b.b_pawns == int('00100000', 2) << 32 | int('11011111', 2) << 48
-        assert b.w_knights == int('01000000', 2) | int('00000100', 2) << 16
+        assert b.PIECES['P'] == int('00001000', 2) << 24 | int('11110111', 2) << 8
+        assert b.PIECES['p'] == int('00100000', 2) << 32 | int('11011111', 2) << 48
+        assert b.PIECES['N'] == int('01000000', 2) | int('00000100', 2) << 16
+
+        # to fen
+        test_fen = "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
+        b.from_fen(test_fen)
+        assert b.to_fen() == test_fen
 
 
 class TestMovements(BaseTest):
