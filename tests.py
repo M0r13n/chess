@@ -77,10 +77,10 @@ class TestFENNotation(BaseTest):
         assert b.white_queen_side_castle_right
         assert b.move_number == 1
         assert b.half_move_clock == 0
-        assert b.all_black_pieces == int('1111111111111111', 2) << 48
-        assert b.all_white_pieces == int('1111111111111111', 2)
-        assert b.PIECES['p'] == RANK_2
-        assert b.PIECES['P'] == RANK_7
+        assert b._all_black_pieces() == int('1111111111111111', 2) << 48
+        assert b._all_white_pieces() == int('1111111111111111', 2)
+        assert b.PIECES['p'] == RANK_7
+        assert b.PIECES['P'] == RANK_2
         assert b.PIECES['k'] == int('00001000', 2) << 56
         assert b.PIECES['K'] == int('00001000', 2)
         assert b.PIECES['q'] == int('00010000', 2) << 56
@@ -124,38 +124,99 @@ class TestFENNotation(BaseTest):
         assert b.to_fen() == test_fen
 
 
-class TestMovements(BaseTest):
+class TestKingAttacks(BaseTest):
     def __init__(self):
-        super(TestMovements, self).__init__(name="Test movements for pawns")
-
-    def run(self):
-        from chess import Board, RANK_5, D_LINE
-
-        b = Board()
-        assert b.gen_moves(0) == int(8 * '1', 2) << 40 | int(8 * '1', 2) << 32
-        assert b.gen_moves(1) == int(8 * '1', 2) << 16 | int(8 * '1', 2) << 24
-
-        b.from_fen("8/8/8/8/3r4/8/8/8 b KQkq - 1 2")
-        assert b.gen_moves(0) == (RANK_5 | D_LINE) & ~b.all_black_pieces
-
-
-class TestEnPassant(BaseTest):
-    def __init__(self):
-        super(TestEnPassant, self).__init__(name="Test EnPassant")
+        super(TestKingAttacks, self).__init__(name="Test attacked fields by king")
 
     def run(self):
         from chess import Board
 
-        b = Board("rnbqkbnr/pppppppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")
-        assert b.ep_move
-        assert b.gen_moves(0) & int("00011000", 2) << 16 == int("00011000", 2) << 16
+        b = Board("8/8/8/8/4K3/8/8/8 b KQkq - 0 1")
 
-        b = Board("rnbqkbnr/pppppppp/8/8/3pP3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1")
-        assert not b.ep_move
-        assert b.gen_moves(0) & int("00010000", 2) << 16 == int("00010000", 2) << 16
+        assert b.attacked_fields(0) == 0
+        assert b.attacked_fields(1) == (int('00011100', 2) << 32) | int('00010100', 2) << 24 | int('00011100', 2) << 16
+
+        b.from_fen("8/8/8/8/8/8/8/7k b KQkq - 0 1")
+        assert b.attacked_fields(1) == 0
+        assert b.attacked_fields(0) == (int('00000010', 2)) | int('00000011', 2) << 8
 
 
-TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestMovements(), TestFENNotation(), TestEnPassant(), ]
+class TestQueenAttacks(BaseTest):
+    def __init__(self):
+        super(TestQueenAttacks, self).__init__(name="Test attacked fields by Queen")
+
+    def run(self):
+        from chess import Board
+
+        b = Board("8/8/8/8/3Q4/8/8/8 b KQkq - 0 1")
+        assert b.attacked_fields(1) == 1266167048752878738
+
+
+class TestBishopAttacks(BaseTest):
+    def __init__(self):
+        super(TestBishopAttacks, self).__init__(name="Test attacked fields by Queen")
+
+    def run(self):
+        from chess import Board
+
+        b = Board("8/8/8/8/3b4/8/8/8 b KQkq - 0 1")
+        assert b.attacked_fields(0) == 108724279602332802
+
+
+class TestKnightAttacks(BaseTest):
+    def __init__(self):
+        super(TestKnightAttacks, self).__init__(name="Test attacked fields by Knights")
+
+    def run(self):
+        from chess import Board
+
+        b = Board("8/8/8/8/3N4/8/8/8 b KQkq - 0 1")
+        assert b.attacked_fields(1) == 44272527353856
+
+
+class TestPawnAttacks(BaseTest):
+    def __init__(self):
+        super(TestPawnAttacks, self).__init__(name="Test attacked fields by Pawns")
+
+    def run(self):
+        from chess import Board
+
+        b = Board("P7/8/8/4P3/3p4/8/8/7p b KQkq - 0 1")
+        assert b.attacked_fields(0) == int('00101000', 2) << 16
+        assert b.attacked_fields(1) == int('00010100', 2) << 40
+
+
+class TestMoves(BaseTest):
+    def __init__(self):
+        super(TestMoves, self).__init__(name="Test Move Generation")
+
+    def run(self):
+        from chess import Board, b_board_to_str, SQUARES, SQUARE_MASK
+
+        # Starting position
+        b = Board()
+        assert b.gen_moves() == int('11111111', 2) << 16 | int('11111111', 2) << 24
+        assert b.gen_moves(0) == int('11111111', 2) << 32 | int('11111111', 2) << 40
+
+        # Pawns
+        b = Board("P7/8/8/4P3/3p4/8/8/7p b KQkq - 0 1")
+        assert b.gen_moves(0) == SQUARE_MASK[SQUARES['d3']]
+        assert b.gen_moves(1) == SQUARE_MASK[SQUARES['e6']]
+
+        # Pawn attacks
+        b = Board("8/8/8/4p3/3P4/8/8/8 b KQkq - 0 1")
+        assert b.gen_moves() == SQUARE_MASK[SQUARES['d4']] | SQUARE_MASK[SQUARES['e4']]
+        assert b.gen_moves(1) == SQUARE_MASK[SQUARES['d5']] | SQUARE_MASK[SQUARES['e5']]
+
+        # Knight Attacks
+        b = Board("8/8/8/8/6P1/8/7N/5p2 w KQkq - 0 1")
+        assert b.gen_moves() == SQUARE_MASK[SQUARES['f3']] | SQUARE_MASK[SQUARES['f1']] | SQUARE_MASK[SQUARES['g5']]
+
+        # todo continue
+
+
+TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestFENNotation(), TestKingAttacks(), TestQueenAttacks(),
+         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks(), TestMoves(), ]
 
 
 def run_all_tests():

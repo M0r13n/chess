@@ -25,14 +25,16 @@ C_LINE = D_LINE << 1
 B_LINE = C_LINE << 1
 A_LINE = B_LINE << 1
 
-RANK_8 = 0xff
-RANK_7 = RANK_8 << 8
-RANK_6 = RANK_7 << 8
-RANK_5 = RANK_6 << 8
-RANK_4 = RANK_5 << 8
-RANK_3 = RANK_4 << 8
-RANK_2 = RANK_3 << 8
-RANK_1 = RANK_2 << 8
+RANK_1 = 0xff
+RANK_2 = RANK_1 << 8
+RANK_3 = RANK_2 << 8
+RANK_4 = RANK_3 << 8
+RANK_5 = RANK_4 << 8
+RANK_6 = RANK_5 << 8
+RANK_7 = RANK_6 << 8
+RANK_8 = RANK_7 << 8
+
+PIECES = [KING, QUEEN, KNIGHT, BISHOP, ROOK, PAWN] = range(6)
 
 SYMBOLS = {
     "R": u"♖", "r": u"♜",
@@ -77,14 +79,6 @@ def _lsb(b: B_BOARD):
 
 def _msb(b: B_BOARD):
     return b.bit_length() - 1
-
-
-def _is_empty(b: B_BOARD):
-    return b == EMPTY
-
-
-def _is_universe(b: B_BOARD):
-    return b == UNIVERSE
 
 
 def _scan_lsb_first(b: B_BOARD):
@@ -132,7 +126,7 @@ def _shift_right(b: B_BOARD):
 
 
 def _shift_right_right(b: B_BOARD):
-    return ((b >> 2) & ~A_LINE) & UNIVERSE
+    return ((b >> 2) & ~A_LINE & ~B_LINE) & UNIVERSE
 
 
 def _shift_left(b: B_BOARD):
@@ -140,7 +134,7 @@ def _shift_left(b: B_BOARD):
 
 
 def _shift_left_left(b: B_BOARD):
-    return ((b << 2) & ~H_LINE) & UNIVERSE
+    return ((b << 2) & ~H_LINE & ~G_LINE) & UNIVERSE
 
 
 def _shift_right_up(b: B_BOARD):
@@ -159,39 +153,12 @@ def _shift_left_down(b: B_BOARD):
     return (b & ~H_LINE) >> 9
 
 
-DIAGONALS = [UL, DL, DR, UR] = range(4)
-
-DIAGONAL_MOVS = {
-    UL: lambda x: _shift_up(_shift_left(x)),
-    DL: lambda x: _shift_down(_shift_left(x)),
-    DR: lambda x: _shift_down(_shift_right(x)),
-    UR: lambda x: _shift_up(_shift_right(x))
-
-}
-
-KNIGHT_MOVS = [
-    lambda x: _shift_left(_shift_down_down(x)),
-    lambda x: _shift_left(_shift_up_up(x)),
-    lambda x: _shift_right(_shift_up_up(x)),
-    lambda x: _shift_right(_shift_down_down(x)),
-    lambda x: _shift_up(_shift_right_right(x)),
-    lambda x: _shift_up(_shift_left_left(x)),
-    lambda x: _shift_down(_shift_right_right(x)),
-    lambda x: _shift_down(_shift_left_left(x)),
-]
-
-KING_MOVS = [_shift_right, _shift_right_down, _shift_down, _shift_left_down,
-             _shift_left, _shift_left_up, _shift_up, _shift_right_up]
-
-LINE_MOVS = [_shift_up, _shift_right, _shift_down, _shift_left]
-
-
-def traverse_diagonal(square, diagonal, occupied, enemies):
+def _traverse_delta(square, delta, occupied, enemies):
     moves = 0
     sq = square
-    shift = DIAGONAL_MOVS[diagonal]
+
     while True:
-        sq = shift(sq)
+        sq = delta(sq)
         if sq & occupied:
             break
         moves |= sq
@@ -201,18 +168,65 @@ def traverse_diagonal(square, diagonal, occupied, enemies):
     return moves
 
 
-def traverse_line(square, shift, occupied, enemies):
+STEPS = [_shift_right, _shift_left, _shift_up, _shift_down]
+SLIDES = [_shift_right_up, _shift_right_down, _shift_left_down, _shift_left_up]
+DIRECTIONS = STEPS + SLIDES
+KNIGHT_MOVS = [
+    lambda x: _shift_left(_shift_down_down(x)),
+    lambda x: _shift_left(_shift_up_up(x)),
+    lambda x: _shift_right(_shift_up_up(x)),
+    lambda x: _shift_right(_shift_down_down(x)),
+    lambda x: _shift_up(_shift_right_right(x)),  # bastard
+    lambda x: _shift_up(_shift_left_left(x)),
+    lambda x: _shift_down(_shift_right_right(x)),
+    lambda x: _shift_down(_shift_left_left(x)),
+]
+
+
+def _king_moves(king):
     moves = 0
-    sq = square
+    for mov in DIRECTIONS:
+        moves |= mov(king)  # King
+    return moves
 
-    while True:
-        sq = shift(sq)
-        if sq & occupied:
-            break
-        moves |= sq
-        if sq & enemies or sq == 0:
-            break
 
+def _queen_moves(queen, occupied, enemies):
+    moves = 0
+    for mov in DIRECTIONS:
+        moves |= _traverse_delta(queen, mov, occupied, enemies)  # queen
+    return moves
+
+
+def _bishop_moves(bishop, occupied, enemies):
+    moves = 0
+    for slide in SLIDES:
+        moves |= _traverse_delta(bishop, slide, occupied, enemies)
+    return moves
+
+
+def _rook_moves(rook, occupied, enemies):
+    moves = 0
+    for step in STEPS:
+        moves |= _traverse_delta(rook, step, occupied, enemies)
+    return moves
+
+
+def _pawn_moves(pawn, player):
+    if player:
+        return _shift_up(pawn) | _shift_up_up(pawn & RANK_2)
+    return _shift_down(pawn) | _shift_down_down(pawn & RANK_7)
+
+
+def _pawn_attacks(pawn, player):
+    if player:
+        return _shift_right_up(pawn) | _shift_left_up(pawn)
+    return _shift_right_down(pawn) | _shift_left_down(pawn)
+
+
+def _knight_move(knight):
+    moves = 0
+    for move in KNIGHT_MOVS:
+        moves |= move(knight)
     return moves
 
 
@@ -222,27 +236,6 @@ def b_board_to_str(b: B_BOARD) -> str:
     :param b: BitBoard
     """
     return '\n'.join(['{0:064b}'.format(b)[i:i + 8] for i in range(0, 64, 8)])
-
-
-def rotate(b: B_BOARD):
-    """
-    rotate a board by 180 degrees
-    see: https://www.chessprogramming.org/Flipping_Mirroring_and_Rotating#MirrorHorizontally
-    """
-    h1 = 0x5555555555555555
-    h2 = 0x3333333333333333
-    h4 = 0x0F0F0F0F0F0F0F0F
-    v1 = 0x00FF00FF00FF00FF
-    v2 = 0x0000FFFF0000FFFF
-    x = b
-
-    x = ((x >> 1) & h1) | ((x & h1) << 1)
-    x = ((x >> 2) & h2) | ((x & h2) << 2)
-    x = ((x >> 4) & h4) | ((x & h4) << 4)
-    x = ((x >> 8) & v1) | ((x & v1) << 8)
-    x = ((x >> 16) & v2) | ((x & v2) << 16)
-    x = (x >> 32) | (x << 32)
-    return x
 
 
 class Board:
@@ -302,18 +295,18 @@ class Board:
 
     def reset(self):
         self.PIECES = {
-            'p': 0,
-            'b': 0,
-            'n': 0,
             'k': 0,
             'q': 0,
+            'n': 0,
+            'b': 0,
             'r': 0,
-            'P': 0,
-            'B': 0,
-            'N': 0,
+            'p': 0,
             'K': 0,
             'Q': 0,
-            'R': 0
+            'N': 0,
+            'B': 0,
+            'R': 0,
+            'P': 0
         }
         # state
         self.active_player = 1
@@ -378,101 +371,73 @@ class Board:
 
         return ''.join(s)
 
-    @property
-    def all_white_pieces(self) -> int:
+    def _all_white_pieces(self) -> int:
         pieces = 0
         for symbol, val in self.PIECES.items():
             if symbol.isupper():
                 pieces |= val
         return pieces
 
-    @property
-    def all_black_pieces(self) -> int:
+    def _all_black_pieces(self) -> int:
         pieces = 0
         for symbol, val in self.PIECES.items():
             if symbol.islower():
                 pieces |= val
         return pieces
 
-    @property
-    def all_pieces(self) -> int:
-        return self.all_black_pieces | self.all_white_pieces
+    def _all_pieces(self) -> int:
+        return self._all_black_pieces() | self._all_white_pieces()
 
-    def pieces_of_type(self, p_type: str):
-        if p_type not in self.PIECES:
-            raise ValueError('Invalid piece type!')
+    def _filter_pieces_by_side(self, player):
+        return [v for k, v in self.PIECES.items() if (k.isupper() if player else k.islower())]
 
-        return self.PIECES[p_type]
+    def attacked_fields(self, by_player) -> B_BOARD:
+        """
+        this methods returns every field that is currently under attack by the specified player
+        :param by_player:
+        :return:
+        """
+        attacked_fields = 0
+        occupied = self._all_white_pieces() if by_player else self._all_black_pieces()
+        enemies = self._all_black_pieces() if by_player else self._all_white_pieces()
+        king, queens, knights, bishops, rooks, pawns = self._filter_pieces_by_side(by_player)
 
-    def gen_moves(self, player, exclude_attacked_fields=False):
-        enemies = self.all_black_pieces if player else self.all_white_pieces
-        occupied = self.all_white_pieces if player else self.all_black_pieces
+        attacked_fields |= _king_moves(king)
+        attacked_fields |= _queen_moves(queens, occupied, enemies)
+        attacked_fields |= _bishop_moves(bishops, occupied, enemies)
+        attacked_fields |= _rook_moves(rooks, occupied, enemies)
+        attacked_fields |= _knight_move(knights)
+        attacked_fields |= _pawn_attacks(pawns, by_player)
+
+        return attacked_fields
+
+    def gen_moves(self, player=None):
+        if player is None:
+            player = self.active_player
+
+        occupied = self._all_white_pieces() if player else self._all_black_pieces()
+        enemies = self._all_black_pieces() if player else self._all_white_pieces()
+        king, queens, knights, bishops, rooks, pawns = [v for k, v in self.PIECES.items() if
+                                                        (k.isupper() if player else k.islower())]
         moves = 0
 
-        # PAWNS
-        pawns = self.PIECES['P'] if player else self.PIECES['p']
+        # Normal moves
+        moves |= _queen_moves(queens, occupied, enemies)
+        moves |= _bishop_moves(bishops, occupied, enemies)
+        moves |= _rook_moves(rooks, occupied, enemies)
+        moves |= _knight_move(knights) & ~occupied
+        moves |= _king_moves(king) & ~occupied & ~self.attacked_fields(not player)
+        moves |= _pawn_moves(pawns, player) | (_pawn_attacks(pawns, player) & enemies)
 
-        # one step
-        mov_v = _shift_up if player else _shift_down
-        pos = mov_v(pawns) & ~occupied & ~enemies
-        moves |= pos
-
-        # two steps
-        pos = pos & RANK_6 if player else pos & RANK_3
-        pos = mov_v(pos) & ~occupied & ~enemies
-        moves |= pos
-
-        # diagonal attacks including en passant
-        mov_ds = (_shift_left_up, _shift_right_up) if player else (_shift_left_down, _shift_right_down)
-
+        # Special moves
+        # En passant
         if self.ep_move:
-            enemies |= SQUARE_MASK[SQUARES[self.ep_move]]
+            moves |= SQUARE_MASK[SQUARES[self.ep_move]]
 
-        for mov_d in mov_ds:
-            pos = mov_d(pawns) & ~occupied & enemies
-            moves |= pos
-
-        if self.ep_move:
-            enemies &= ~SQUARE_MASK[SQUARES[self.ep_move]]
-
-        # KING
-        king = self.PIECES['K'] if player else self.PIECES['k']
-        attacked_fields = 0 if exclude_attacked_fields else self.gen_moves(not player, True)
-
-        for mov in KING_MOVS:
-            moves |= mov(king) & ~occupied & ~attacked_fields
-
-        # todo castle
-
-        # KNIGHTS
-        knights = self.PIECES['N'] if player else self.PIECES['n']
-        for mov in KNIGHT_MOVS:
-            moves |= mov(knights) & ~occupied
-
-        # ROOKS
-        rooks = self.PIECES['R'] if player else self.PIECES['r']
-        for shift in LINE_MOVS:
-            moves |= traverse_line(rooks, shift, occupied, enemies)
-
-        # BISHOPS
-        bishops = self.PIECES['B'] if player else self.PIECES['b']
-        for diagonal in DIAGONALS:
-            moves |= traverse_diagonal(bishops, diagonal, occupied, enemies)
-
-        # QUEENS
-        queens = self.PIECES['Q'] if player else self.PIECES['q']
-        for shift in LINE_MOVS:
-            moves |= traverse_line(queens, shift, occupied, enemies)
-
-        for diagonal in DIAGONALS:
-            moves |= traverse_diagonal(queens, diagonal, occupied, enemies)
+        # Castle
+        if self.white_king_side_castle_right:
+            pass
+        if self.white_queen_side_castle_right:
+            pass
 
         return moves
-
-    def move(self, sq, to):
-        pass
-
-
-class Move:
-    def __init__(self):
-        pass
