@@ -4,7 +4,6 @@ A chess game
 todo:
 - Implement Game Loop
 - Implement an uci parser
-- Fix todos in logic code
 - Up to now only pseudo legal moves are provided -> check for legality
 - Undo / Redo
 """
@@ -429,15 +428,8 @@ class Board:
         moves |= _king_moves(king) & ~occupied & ~self.attacked_fields(not player)
         moves |= _pawn_moves(pawns, player) | (_pawn_attacks(pawns, player) & enemies)
 
-        # Special moves
         # En passant
         if self.ep_move:
-            moves |= SQUARE_MASK[SQUARES[self.ep_move]]
-
-        # Castle
-        if self.white_king_side_castle_right:
-            pass
-        if self.white_queen_side_castle_right:
-            pass
+            moves |= _pawn_attacks(pawns, player) & SQUARE_MASK[SQUARES[self.ep_move]]
 
         return moves
