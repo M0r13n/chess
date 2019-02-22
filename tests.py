@@ -191,7 +191,7 @@ class TestMoves(BaseTest):
         super(TestMoves, self).__init__(name="Test Move Generation")
 
     def run(self):
-        from chess import Board, b_board_to_str, SQUARES, SQUARE_MASK
+        from chess import Board, SQUARES, SQUARE_MASK
 
         # Starting position
         b = Board()
@@ -241,7 +241,7 @@ class TestMoves(BaseTest):
 
 
 TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestFENNotation(), TestKingAttacks(), TestQueenAttacks(),
-         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks(), TestMoves(), ]
+         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks() ]
 
 
 def run_all_tests():

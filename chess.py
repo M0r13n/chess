@@ -418,18 +418,95 @@ class Board:
         enemies = self._all_black_pieces() if player else self._all_white_pieces()
         king, queens, knights, bishops, rooks, pawns = [v for k, v in self.PIECES.items() if
                                                         (k.isupper() if player else k.islower())]
-        moves = 0
 
-        # Normal moves
-        moves |= _queen_moves(queens, occupied, enemies)
-        moves |= _bishop_moves(bishops, occupied, enemies)
-        moves |= _rook_moves(rooks, occupied, enemies)
-        moves |= _knight_move(knights) & ~occupied
-        moves |= _king_moves(king) & ~occupied & ~self.attacked_fields(not player)
-        moves |= _pawn_moves(pawns, player) | (_pawn_attacks(pawns, player) & enemies)
+        # iterate piece by piece over queens, bishops, rooks and knights:
+        for i in _scan_lsb_first(queens):
+            moves = _queen_moves(SQUARE_MASK[i], occupied, enemies)
+            for j in _scan_lsb_first(moves):
+                yield Move(i, j)
+
+        for i in _scan_lsb_first(bishops):
+            moves = _bishop_moves(SQUARE_MASK[i], occupied, enemies)
+            for j in _scan_lsb_first(moves):
+                yield Move(i, j)
+
+        for i in _scan_lsb_first(rooks):
+            moves = _rook_moves(SQUARE_MASK[i], occupied, enemies)
+            for j in _scan_lsb_first(moves):
+                yield Move(i, j)
+
+        for i in _scan_lsb_first(knights):
+            moves = _knight_move(SQUARE_MASK[i]) & ~occupied
+            for j in _scan_lsb_first(moves):
+                yield Move(i, j)
+
+        for i in _scan_lsb_first(_king_moves(king) & ~occupied & ~self.attacked_fields(not player)):
+            yield Move(_lsb(king), i)
+
+        for p in _scan_lsb_first(pawns):
+            moves = _pawn_moves(SQUARE_MASK[p], player) | (_pawn_attacks(p, player) & enemies)
+            for j in _scan_lsb_first(moves):
+                yield Move(p, j)
 
         # En passant
         if self.ep_move:
-            moves |= _pawn_attacks(pawns, player) & SQUARE_MASK[SQUARES[self.ep_move]]
+            move = _pawn_attacks(pawns, player) & SQUARE_MASK[SQUARES[self.ep_move]]
+            if move:
+                yield Move(next(_scan_lsb_first(move)), SQUARES[self.ep_move])
 
-        return moves
+        # Castle
+        if self.white_king_side_castle_right and (king & ~self.attacked_fields(not player)):
+            move = (_shift_right(king) | _shift_right_right(king)) & ~self.attacked_fields(not player) & ~occupied
+            if move == 6:
+                yield Move(_lsb(king), _lsb(move))
+
+        if self.black_king_side_castle_right and (king & ~self.attacked_fields(not player)):
+            move = (_shift_right(king) | _shift_right_right(king)) & ~self.attacked_fields(not player) & ~occupied
+            if move == 432345564227567616:
+                yield Move(_lsb(king), _lsb(move))
+
+        if self.white_queen_side_castle_right and (king & ~self.attacked_fields(not player)):
+            move = (_shift_left(king) | _shift_left_left(king)) & ~self.attacked_fields(not player) & ~occupied
+            if move == 48:
+                yield Move(_lsb(king), _msb(move))
+
+        if self.black_queen_side_castle_right and (king & ~self.attacked_fields(not player)):
+            move = (_shift_left(king) | _shift_left_left(king)) & ~self.attacked_fields(not player) & ~occupied
+            if move == 3458764513820540928:
+                yield Move(_lsb(king), _msb(move))
+
+
+class Move:
+
+    def __init__(self, from_square, to_square, promotion=None, drop=None):
+        self.from_square = from_square
+        self.to_square = to_square
+        self.promotion = promotion
+        self.drop = drop
+
+    @property
+    def uci(self):
+        # todo not yet finished
+        keys = list(SQUARES.keys())
+        vals = list(SQUARES.values())
+        return "{f}{t}".format(f=keys[vals.index(self.from_square)], t=keys[vals.index(self.to_square)])
+
+    @uci.setter
+    def uci(self, uci):
+        # todo implement
+        pass
+
+    def __eq__(self, other):
+        return (self.from_square == other.from_square and
+                self.to_square == other.to_square and
+                self.promotion == other.promotion and
+                self.drop == other.drop)
+
+    def __repr__(self):
+        return self.uci
+
+    def __hash__(self):
+        return hash((self.to_square, self.from_square, self.promotion, self.drop))
+
+    def __copy__(self):
+        return type(self)(self.from_square, self.to_square, self.promotion, self.drop)
