@@ -71,6 +71,12 @@ SQUARE_MASK = [1 << sq for sq in range(64)]
 SQUARE_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 BASEBOARD = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
+KSCR_W = 0x6
+KSCR_B = 0x600000000000000
+
+QSCR_W = 0x30
+SQCR_B = 0x3000000000000000
+
 
 def _lsb(b: B_BOARD):
     return (b & -b).bit_length() - 1
@@ -446,7 +452,8 @@ class Board:
         for p in _scan_lsb_first(pawns):
             moves = _pawn_moves(SQUARE_MASK[p], player) | (_pawn_attacks(p, player) & enemies)
             for j in _scan_lsb_first(moves):
-                yield Move(p, j)
+                promotion = 55 <= j <= 63 or 0 <= j <= 7
+                yield Move(p, j, promotion=promotion)
 
         # En passant
         if self.ep_move:
@@ -457,32 +464,31 @@ class Board:
         # Castle
         if self.white_king_side_castle_right and (king & ~self.attacked_fields(not player)):
             move = (_shift_right(king) | _shift_right_right(king)) & ~self.attacked_fields(not player) & ~occupied
-            if move == 6:
+            if move == KSCR_W:
                 yield Move(_lsb(king), _lsb(move))
 
         if self.black_king_side_castle_right and (king & ~self.attacked_fields(not player)):
             move = (_shift_right(king) | _shift_right_right(king)) & ~self.attacked_fields(not player) & ~occupied
-            if move == 432345564227567616:
+            if move == KSCR_B:
                 yield Move(_lsb(king), _lsb(move))
 
         if self.white_queen_side_castle_right and (king & ~self.attacked_fields(not player)):
             move = (_shift_left(king) | _shift_left_left(king)) & ~self.attacked_fields(not player) & ~occupied
-            if move == 48:
+            if move == QSCR_W:
                 yield Move(_lsb(king), _msb(move))
 
         if self.black_queen_side_castle_right and (king & ~self.attacked_fields(not player)):
             move = (_shift_left(king) | _shift_left_left(king)) & ~self.attacked_fields(not player) & ~occupied
-            if move == 3458764513820540928:
+            if move == SQCR_B:
                 yield Move(_lsb(king), _msb(move))
 
 
 class Move:
 
-    def __init__(self, from_square, to_square, promotion=None, drop=None):
+    def __init__(self, from_square, to_square, promotion=None):
         self.from_square = from_square
         self.to_square = to_square
         self.promotion = promotion
-        self.drop = drop
 
     @property
     def uci(self):
@@ -499,14 +505,13 @@ class Move:
     def __eq__(self, other):
         return (self.from_square == other.from_square and
                 self.to_square == other.to_square and
-                self.promotion == other.promotion and
-                self.drop == other.drop)
+                self.promotion == other.promotion)
 
     def __repr__(self):
         return self.uci
 
     def __hash__(self):
-        return hash((self.to_square, self.from_square, self.promotion, self.drop))
+        return hash((self.to_square, self.from_square, self.promotion))
 
     def __copy__(self):
-        return type(self)(self.from_square, self.to_square, self.promotion, self.drop)
+        return type(self)(self.from_square, self.to_square, self.promotion)
