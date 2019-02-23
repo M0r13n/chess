@@ -9,6 +9,7 @@ todo:
 """
 
 from itertools import groupby
+import re
 
 UNIVERSE = 0xffffffffffffffff
 EMPTY = 0
@@ -34,6 +35,7 @@ RANK_7 = RANK_6 << 8
 RANK_8 = RANK_7 << 8
 
 PIECES = [KING, QUEEN, KNIGHT, BISHOP, ROOK, PAWN] = range(6)
+PROMOTION = ['N', 'n', 'B', 'b', 'Q', 'q', 'R', 'r']
 
 SYMBOLS = {
     "R": u"♖", "r": u"♜",
@@ -416,7 +418,7 @@ class Board:
 
         return attacked_fields
 
-    def gen_moves(self, player=None):
+    def gen_pseudo_legal_moves(self, player=None):
         if player is None:
             player = self.active_player
 
@@ -492,15 +494,21 @@ class Move:
 
     @property
     def uci(self):
-        # todo not yet finished
         keys = list(SQUARES.keys())
         vals = list(SQUARES.values())
-        return "{f}{t}".format(f=keys[vals.index(self.from_square)], t=keys[vals.index(self.to_square)])
+        return "{f}{t}{p}".format(
+            f=keys[vals.index(self.from_square)],
+            t=keys[vals.index(self.to_square)],
+            p=self.promotion if self.promotion is not None else ""
+        )
 
-    @uci.setter
-    def uci(self, uci):
-        # todo implement
-        pass
+    @staticmethod
+    def from_uci(uci):
+        m = re.match('([a-h][1-8])([a-h][1-8])(.)?', uci)
+        promotion = m.group(3)
+        if promotion is not None and promotion not in PROMOTION:
+            raise ValueError("Invalid Promotion Piece provided!")
+        return Move(SQUARES[m.group(1)], SQUARES[m.group(2)], promotion)
 
     def __eq__(self, other):
         return (self.from_square == other.from_square and

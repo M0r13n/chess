@@ -186,62 +186,8 @@ class TestPawnAttacks(BaseTest):
         assert b.attacked_fields(1) == int('00010100', 2) << 40
 
 
-class TestMoves(BaseTest):
-    def __init__(self):
-        super(TestMoves, self).__init__(name="Test Move Generation")
-
-    def run(self):
-        from chess import Board, SQUARES, SQUARE_MASK
-
-        # Starting position
-        b = Board()
-        assert b.gen_moves() == int('11111111', 2) << 16 | int('11111111', 2) << 24
-        assert b.gen_moves(0) == int('11111111', 2) << 32 | int('11111111', 2) << 40
-
-        # Pawns
-        b = Board("P7/8/8/4P3/3p4/8/8/7p b KQkq - 0 1")
-        assert b.gen_moves(0) == SQUARE_MASK[SQUARES['d3']]
-        assert b.gen_moves(1) == SQUARE_MASK[SQUARES['e6']]
-
-        # Pawn attacks
-        b = Board("8/8/8/4p3/3P4/8/8/8 b KQkq - 0 1")
-        assert b.gen_moves() == SQUARE_MASK[SQUARES['d4']] | SQUARE_MASK[SQUARES['e4']]
-        assert b.gen_moves(1) == SQUARE_MASK[SQUARES['d5']] | SQUARE_MASK[SQUARES['e5']]
-
-        # Knight Attacks
-        b = Board("8/8/8/8/6P1/8/7N/5p2 w KQkq - 0 1")
-        assert b.gen_moves() == SQUARE_MASK[SQUARES['f3']] | SQUARE_MASK[SQUARES['f1']] | SQUARE_MASK[SQUARES['g5']]
-
-        # Bishop
-        b = Board("8/3P4/8/8/6B1/5p2/8/8 w KQkq - 0 1")
-        assert b.gen_moves() == 1152930322175033344
-        b = Board("8/8/8/8/6B1/8/8/8 w KQkq - 0 1")
-        assert b.gen_moves() == 2310355426409252880
-
-        # Queen
-        b = Board("8/8/8/8/3Q4/8/8/8 w KQkq - 0 1")
-        assert b.gen_moves() == 1266167048752878738
-        b = Board("7p/6p1/8/8/3Q4/8/5P2/8 w KQkq - 0 1")
-        assert b.gen_moves() == 1194109454715211920
-
-        # King
-        b = Board("8/8/8/8/3K4/8/8/8 w KQkq - 0 1")
-        assert b.gen_moves() == 241192927232
-        b = Board("8/8/8/8/6r1/7K/6B1/8 w KQkq - 0 1")
-        assert b.gen_moves() == 9241421688623857925
-
-        # En passant
-        b = Board("8/8/8/8/3pP4/8/8/8 b KQkq e3 0 1")
-        assert b.gen_moves() == int("00011000", 2) << 16
-        b = Board("8/8/8/8/3pP4/8/8/8 b KQkq - 0 1")
-        assert b.gen_moves() == int("00010000", 2) << 16
-
-        b = Board("8/8/8/8/8/8/8/4K3 w KQkq - 0 1")
-        assert b.gen_moves() == int("0001110000010100", 2)
-
-
 TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestFENNotation(), TestKingAttacks(), TestQueenAttacks(),
-         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks() ]
+         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks()]
 
 
 def run_all_tests():
