@@ -489,6 +489,10 @@ class Board:
                 return k
 
     def make_move(self, move):
+        """
+        NOT YET FINISHED
+        TODO
+        """
         if move not in list(self.gen_pseudo_legal_moves()):
             raise ValueError("Invalid Move")
 
@@ -510,6 +514,7 @@ class Board:
                     print("King-side Castle")
                 else:
                     print("Queen-side Castle")
+
         # ep
         # legal ? --> False = Undo
         # if so switch players, check if castle rights are still valid
