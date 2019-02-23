@@ -3,7 +3,6 @@ A chess game
 
 todo:
 - Implement Game Loop
-- Implement an uci parser
 - Up to now only pseudo legal moves are provided -> check for legality
 - Undo / Redo
 """
@@ -452,10 +451,9 @@ class Board:
             yield Move(_lsb(king), i)
 
         for p in _scan_lsb_first(pawns):
-            moves = _pawn_moves(SQUARE_MASK[p], player) | (_pawn_attacks(p, player) & enemies)
+            moves = _pawn_moves(SQUARE_MASK[p], player) | (_pawn_attacks(SQUARE_MASK[p], player) & enemies)
             for j in _scan_lsb_first(moves):
-                promotion = 55 <= j <= 63 or 0 <= j <= 7
-                yield Move(p, j, promotion=promotion)
+                yield Move(p, j)
 
         # En passant
         if self.ep_move:
@@ -484,10 +482,43 @@ class Board:
             if move == SQCR_B:
                 yield Move(_lsb(king), _msb(move))
 
+    def get_piece(self, square):
+        sq = SQUARE_MASK[square]
+        for k, v in self.PIECES.items():
+            if v & sq:
+                return k
+
+    def make_move(self, move):
+        if move not in list(self.gen_pseudo_legal_moves()):
+            raise ValueError("Invalid Move")
+
+        from_square, to_square = move.from_square, move.to_square
+        from_piece, to_piece = self.get_piece(from_square), self.get_piece(to_square)
+
+        backup = self.to_fen()
+
+        # move and remove hostile piece if it exists
+        self.PIECES[from_piece] &= ~SQUARE_MASK[from_square]
+        self.PIECES[from_piece] |= SQUARE_MASK[to_square]
+        if to_piece is not None:
+            self.PIECES[to_piece] &= ~SQUARE_MASK[to_square]
+
+        # castle
+        if from_piece == 'K' or from_piece == 'k':
+            if not _king_moves(self.PIECES[from_piece]) & SQUARE_MASK[to_square]:
+                if from_square > to_square:
+                    print("King-side Castle")
+                else:
+                    print("Queen-side Castle")
+        # ep
+        # legal ? --> False = Undo
+        # if so switch players, check if castle rights are still valid
+        self.active_player = not self.active_player
+
 
 class Move:
 
-    def __init__(self, from_square, to_square, promotion=None):
+    def __init__(self, from_square, to_square, promotion=False):
         self.from_square = from_square
         self.to_square = to_square
         self.promotion = promotion
@@ -499,16 +530,17 @@ class Move:
         return "{f}{t}{p}".format(
             f=keys[vals.index(self.from_square)],
             t=keys[vals.index(self.to_square)],
-            p=self.promotion if self.promotion is not None else ""
+            p=self.promotion if self.promotion else ""
         )
 
     @staticmethod
     def from_uci(uci):
+        uci = uci.lower()
         m = re.match('([a-h][1-8])([a-h][1-8])(.)?', uci)
         promotion = m.group(3)
         if promotion is not None and promotion not in PROMOTION:
             raise ValueError("Invalid Promotion Piece provided!")
-        return Move(SQUARES[m.group(1)], SQUARES[m.group(2)], promotion)
+        return Move(SQUARES[m.group(1)], SQUARES[m.group(2)], bool(promotion))
 
     def __eq__(self, other):
         return (self.from_square == other.from_square and
