@@ -229,7 +229,14 @@ def _pawn_attacks(pawn, player):
     return _shift_right_down(pawn) | _shift_left_down(pawn)
 
 
-def _knight_move(knight):
+def _knight_move(knight, occupied, *args):
+    moves = 0
+    for move in KNIGHT_MOVS:
+        moves |= move(knight)
+    return moves & ~occupied
+
+
+def _knight_attacks(knight):
     moves = 0
     for move in KNIGHT_MOVS:
         moves |= move(knight)
@@ -412,7 +419,7 @@ class Board:
         attacked_fields |= _queen_moves(queens, occupied, enemies)
         attacked_fields |= _bishop_moves(bishops, occupied, enemies)
         attacked_fields |= _rook_moves(rooks, occupied, enemies)
-        attacked_fields |= _knight_move(knights)
+        attacked_fields |= _knight_attacks(knights)
         attacked_fields |= _pawn_attacks(pawns, by_player)
 
         return attacked_fields
@@ -427,25 +434,11 @@ class Board:
                                                         (k.isupper() if player else k.islower())]
 
         # iterate piece by piece over queens, bishops, rooks and knights:
-        for i in _scan_lsb_first(queens):
-            moves = _queen_moves(SQUARE_MASK[i], occupied, enemies)
-            for j in _scan_lsb_first(moves):
-                yield Move(i, j)
-
-        for i in _scan_lsb_first(bishops):
-            moves = _bishop_moves(SQUARE_MASK[i], occupied, enemies)
-            for j in _scan_lsb_first(moves):
-                yield Move(i, j)
-
-        for i in _scan_lsb_first(rooks):
-            moves = _rook_moves(SQUARE_MASK[i], occupied, enemies)
-            for j in _scan_lsb_first(moves):
-                yield Move(i, j)
-
-        for i in _scan_lsb_first(knights):
-            moves = _knight_move(SQUARE_MASK[i]) & ~occupied
-            for j in _scan_lsb_first(moves):
-                yield Move(i, j)
+        for p, move in zip((queens, bishops, rooks, knights), (_queen_moves, _bishop_moves, _rook_moves, _knight_move)):
+            for i in _scan_lsb_first(p):
+                moves = move(SQUARE_MASK[i], occupied, enemies)
+                for j in _scan_lsb_first(moves):
+                    yield Move(i, j)
 
         for i in _scan_lsb_first(_king_moves(king) & ~occupied & ~self.attacked_fields(not player)):
             yield Move(_lsb(king), i)
