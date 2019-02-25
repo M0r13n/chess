@@ -202,3 +202,7 @@ def run_all_tests():
 if __name__ == '__main__':
     run_all_tests()
     print("SUCCESS!")
+
+'rnb1kb1r/pppp1ppp/B3p2n/8/4P2q/7N/PPPP1PPP/RNBQK2R w KQkq - 0 1'
+
+'rnb2r1k/pppp1ppp/B6n/4p3/4P2q/b6N/PPPP1PPP/RNBQ1R1K w KQkq - 0 1'

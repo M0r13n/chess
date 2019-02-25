@@ -78,6 +78,11 @@ KSCR_B = 0x600000000000000
 QSCR_W = 0x30
 SQCR_B = 0x3000000000000000
 
+BB_H1 = 1
+BB_A1 = 0x80
+BB_H8 = 0x100000000000000
+BB_A8 = 0x8000000000000000
+
 
 def _lsb(b: B_BOARD):
     return (b & -b).bit_length() - 1
@@ -501,12 +506,21 @@ class Board:
             self.PIECES[to_piece] &= ~SQUARE_MASK[to_square]
 
         # castle
+        # king was moved but the distance to it´s new pos is greater than 1
+        # king is already on it´s new pos, so only the rooks needs to be moved
         if from_piece == 'K' or from_piece == 'k':
-            if not _king_moves(self.PIECES[from_piece]) & SQUARE_MASK[to_square]:
+            if not _king_moves(SQUARE_MASK[from_square]) & SQUARE_MASK[to_square]:
+                r = 'R' if self.active_player else 'r'
                 if from_square > to_square:
-                    print("King-side Castle")
+                    # king side castle
+                    corner = BB_H1 if self.active_player else BB_H8
+                    self.PIECES[r] &= ~corner
+                    self.PIECES[r] |= corner << 2
                 else:
-                    print("Queen-side Castle")
+                    # queen side castle
+                    corner = BB_A1 if self.active_player else BB_A8
+                    self.PIECES[r] &= ~corner
+                    self.PIECES[r] |= corner >> 3
 
         # ep
         # legal ? --> False = Undo
