@@ -358,7 +358,7 @@ class Board:
         self.black_queen_side_castle_right = 'q' in text[2]
         self.white_king_side_castle_right = 'K' in text[2]
         self.white_queen_side_castle_right = 'q' in text[2]
-        self.ep_move = text[3] if text[3] != "-" else None
+        self.ep_move = text[3] if text[3] != "-" else None  # todo fix
         self.half_move_clock = int(text[4])
         self.move_number = int(text[5])
 
@@ -383,7 +383,7 @@ class Board:
         s.append('Q' if self.white_queen_side_castle_right else None)
         s.append('k' if self.black_king_side_castle_right else None)
         s.append('q' if self.black_queen_side_castle_right else None)
-        s.append(' {} '.format(self.ep_move if self.ep_move else "-"))
+        s.append(' {} '.format(self.ep_move if self.ep_move else "-"))  # todo fix
         s.append('{} '.format(self.half_move_clock))
         s.append('{}'.format(self.move_number))
 
@@ -453,11 +453,11 @@ class Board:
             for j in _scan_lsb_first(moves):
                 yield Move(p, j)
 
-        # En passant
-        if self.ep_move:
-            move = _pawn_attacks(pawns, player) & SQUARE_MASK[SQUARES[self.ep_move]]
-            if move:
-                yield Move(next(_scan_lsb_first(move)), SQUARES[self.ep_move])
+            # ep move
+            if self.ep_move:
+                move = _pawn_attacks(SQUARE_MASK[p], player) & self.ep_move
+                if move:
+                    yield Move(p, _lsb(self.ep_move))
 
         # Castle
         if self.white_king_side_castle_right and (king & ~self.attacked_fields(not player)):
@@ -522,7 +522,18 @@ class Board:
                     self.PIECES[r] &= ~corner
                     self.PIECES[r] |= corner >> 3
 
-        # ep move
+        # ep moves
+        if from_piece == 'P' or from_piece == 'p':
+
+            # kill
+            if self.ep_move and SQUARE_MASK[to_square] == self.ep_move:
+                ptk = 'p' if self.active_player else 'P'
+                self.PIECES[ptk] &= ~SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8]
+
+            # move
+            elif abs(from_square - to_square) > 8:
+                self.ep_move = SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8]
+
         # legal ? --> False = Undo -> load Board from backup-FEN
         # if so switch players, check if castle rights are still valid
         self.active_player = not self.active_player
