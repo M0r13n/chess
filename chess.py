@@ -1,10 +1,6 @@
 """
 A chess game
 
-todo:
-- Implement Game Loop
-- Up to now only pseudo legal moves are provided -> check for legality
-- Undo / Redo
 """
 
 from itertools import groupby
