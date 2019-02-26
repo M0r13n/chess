@@ -522,8 +522,8 @@ class Board:
                     self.PIECES[r] &= ~corner
                     self.PIECES[r] |= corner >> 3
 
-        # ep
-        # legal ? --> False = Undo
+        # ep move
+        # legal ? --> False = Undo -> load Board from backup-FEN
         # if so switch players, check if castle rights are still valid
         self.active_player = not self.active_player
 
