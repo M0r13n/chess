@@ -494,22 +494,26 @@ class Board:
         if move not in list(self.gen_pseudo_legal_moves()):
             raise ValueError("Invalid Move")
 
+        def put(k, v):
+            self.PIECES[k] &= v
+
         from_square, to_square = move.from_square, move.to_square
+        from_square_mask, to_square_mask = SQUARE_MASK[from_square], SQUARE_MASK[to_square]
         from_piece, to_piece = self.get_piece(from_square), self.get_piece(to_square)
 
         backup = self.to_fen()
 
         # move and remove hostile piece if it exists
-        self.PIECES[from_piece] &= ~SQUARE_MASK[from_square]
-        self.PIECES[from_piece] |= SQUARE_MASK[to_square]
+        self.PIECES[from_piece] &= ~from_square_mask
+        self.PIECES[from_piece] |= to_square_mask
         if to_piece is not None:
-            self.PIECES[to_piece] &= ~SQUARE_MASK[to_square]
+            self.PIECES[to_piece] &= ~to_square_mask
 
         # castle
         # king was moved but the distance to it´s new pos is greater than 1
         # king is already on it´s new pos, so only the rooks needs to be moved
         if from_piece == 'K' or from_piece == 'k':
-            if not _king_moves(SQUARE_MASK[from_square]) & SQUARE_MASK[to_square]:
+            if not _king_moves(from_square_mask) & to_square_mask:
                 r = 'R' if self.active_player else 'r'
                 if from_square > to_square:
                     # king side castle
@@ -526,7 +530,7 @@ class Board:
         if from_piece == 'P' or from_piece == 'p':
             # kill
             if self.ep_move:
-                if SQUARE_MASK[to_square] == SQUARE_MASK[SQUARES[self.ep_move]]:
+                if to_square_mask == SQUARE_MASK[SQUARES[self.ep_move]]:
                     ptk = 'p' if self.active_player else 'P'
                     self.PIECES[ptk] &= ~SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8]
 
