@@ -500,8 +500,10 @@ class Board:
         def pop(k, v):
             self.PIECES[k] &= ~v
 
+        mask = lambda x: SQUARE_MASK[x]
+
         from_square, to_square = move.from_square, move.to_square
-        from_square_mask, to_square_mask = SQUARE_MASK[from_square], SQUARE_MASK[to_square]
+        from_square_mask, to_square_mask = mask(from_square), mask(to_square)
         from_piece, to_piece = self.get_piece(from_square), self.get_piece(to_square)
 
         backup = self.to_fen()
@@ -535,9 +537,9 @@ class Board:
         if from_piece == 'P' or from_piece == 'p':
             # kill
             if self.ep_move:
-                if to_square_mask == SQUARE_MASK[SQUARES[self.ep_move]]:
+                if to_square_mask == mask(SQUARES[self.ep_move]):
                     pop('p' if self.active_player else 'P',
-                        SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8])
+                        mask(to_square - 8 if self.active_player else to_square + 8))
 
             # move
             elif abs(from_square - to_square) > 8:
