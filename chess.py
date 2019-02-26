@@ -495,7 +495,10 @@ class Board:
             raise ValueError("Invalid Move")
 
         def put(k, v):
-            self.PIECES[k] &= v
+            self.PIECES[k] |= v
+
+        def pop(k, v):
+            self.PIECES[k] &= ~v
 
         from_square, to_square = move.from_square, move.to_square
         from_square_mask, to_square_mask = SQUARE_MASK[from_square], SQUARE_MASK[to_square]
@@ -504,10 +507,11 @@ class Board:
         backup = self.to_fen()
 
         # move and remove hostile piece if it exists
-        self.PIECES[from_piece] &= ~from_square_mask
-        self.PIECES[from_piece] |= to_square_mask
+        pop(from_piece, from_square_mask)
+        put(from_piece, to_square_mask)
+
         if to_piece is not None:
-            self.PIECES[to_piece] &= ~to_square_mask
+            pop(to_piece, to_square_mask)
 
         # castle
         # king was moved but the distance to it´s new pos is greater than 1
@@ -518,21 +522,22 @@ class Board:
                 if from_square > to_square:
                     # king side castle
                     corner = BB_H1 if self.active_player else BB_H8
-                    self.PIECES[r] &= ~corner
-                    self.PIECES[r] |= corner << 2
+                    pop(r, corner)
+                    put(r, corner << 2)
+
                 else:
                     # queen side castle
                     corner = BB_A1 if self.active_player else BB_A8
-                    self.PIECES[r] &= ~corner
-                    self.PIECES[r] |= corner >> 3
+                    pop(r, corner)
+                    put(r, corner >> 3)
 
         # ep moves
         if from_piece == 'P' or from_piece == 'p':
             # kill
             if self.ep_move:
                 if to_square_mask == SQUARE_MASK[SQUARES[self.ep_move]]:
-                    ptk = 'p' if self.active_player else 'P'
-                    self.PIECES[ptk] &= ~SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8]
+                    pop('p' if self.active_player else 'P',
+                        SQUARE_MASK[to_square - 8 if self.active_player else to_square + 8])
 
             # move
             elif abs(from_square - to_square) > 8:
