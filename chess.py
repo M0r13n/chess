@@ -357,7 +357,7 @@ class Board:
         self.black_king_side_castle_right = 'k' in text[2]
         self.black_queen_side_castle_right = 'q' in text[2]
         self.white_king_side_castle_right = 'K' in text[2]
-        self.white_queen_side_castle_right = 'q' in text[2]
+        self.white_queen_side_castle_right = 'Q' in text[2]
         self.ep_move = text[3] if text[3] != "-" else None
         self.half_move_clock = int(text[4])
         self.move_number = int(text[5])
@@ -379,11 +379,16 @@ class Board:
 
         # append additional state information
         s.append(' w ' if self.active_player else ' b ')
-        s.append('K' if self.white_king_side_castle_right else None)
-        s.append('Q' if self.white_queen_side_castle_right else None)
-        s.append('k' if self.black_king_side_castle_right else None)
-        s.append('q' if self.black_queen_side_castle_right else None)
-        s.append(' {} '.format(self.ep_move if self.ep_move else "-"))
+        s.append('K' if self.white_king_side_castle_right else '')
+        s.append('Q' if self.white_queen_side_castle_right else '')
+        s.append('k' if self.black_king_side_castle_right else '')
+        s.append('q' if self.black_queen_side_castle_right else '')
+        s.append('-' if not any((self.black_queen_side_castle_right,
+                                self.black_king_side_castle_right,
+                                self.white_queen_side_castle_right,
+                                self.white_king_side_castle_right
+                                 )) else '')
+        s.append(' {} '.format(self.ep_move if self.ep_move else '-'))
         s.append('{} '.format(self.half_move_clock))
         s.append('{}'.format(self.move_number))
 
@@ -486,6 +491,15 @@ class Board:
             if v & sq:
                 return k
 
+    def stalemate(self, player=None) -> bool:
+        """
+        Stalemate == False
+        """
+        p = self.active_player
+        if player:
+            p = player
+        return self.attacked_fields(not player) & self.PIECES['K' if p else 'k']
+
     def make_move(self, move):
         """
         NOT YET FINISHED
@@ -494,19 +508,21 @@ class Board:
         if move not in list(self.gen_pseudo_legal_moves()):
             raise ValueError("Invalid Move")
 
+        backup = self.to_fen()
+        capture = False
+
         def put(k, v):
             self.PIECES[k] |= v
 
         def pop(k, v):
             self.PIECES[k] &= ~v
 
-        mask = lambda x: SQUARE_MASK[x]
+        def mask(x):
+            return SQUARE_MASK[x]
 
         from_square, to_square = move.from_square, move.to_square
         from_square_mask, to_square_mask = mask(from_square), mask(to_square)
         from_piece, to_piece = self.get_piece(from_square), self.get_piece(to_square)
-
-        backup = self.to_fen()
 
         # move and remove hostile piece if it exists
         pop(from_piece, from_square_mask)
@@ -514,11 +530,18 @@ class Board:
 
         if to_piece is not None:
             pop(to_piece, to_square_mask)
+            capture = True
 
         # castle
         # king was moved but the distance to it´s new pos is greater than 1
         # king is already on it´s new pos, so only the rooks needs to be moved
+        # in every case the king looses it´s future right to castle
         if from_piece == 'K' or from_piece == 'k':
+            if self.active_player:
+                self.white_king_side_castle_right, self.white_queen_side_castle_right = False, False
+            else:
+                self.black_king_side_castle_right, self.black_queen_side_castle_right = False, False
+
             if not _king_moves(from_square_mask) & to_square_mask:
                 r = 'R' if self.active_player else 'r'
                 if from_square > to_square:
@@ -533,22 +556,49 @@ class Board:
                     pop(r, corner)
                     put(r, corner >> 3)
 
+        ep = self.ep_move
+        self.ep_move = None
         # ep moves
         if from_piece == 'P' or from_piece == 'p':
             # kill
-            if self.ep_move:
-                if to_square_mask == mask(SQUARES[self.ep_move]):
+            if ep:
+                if to_square_mask == mask(SQUARES[ep]):
                     pop('p' if self.active_player else 'P',
                         mask(to_square - 8 if self.active_player else to_square + 8))
-
+                    capture = True
             # move
-            elif abs(from_square - to_square) > 8:
+            if abs(from_square - to_square) > 8:
                 self.ep_move = list(SQUARES.keys())[
                     list(SQUARES.values()).index(to_square - 8 if self.active_player else to_square + 8)]
 
-        # legal ? --> False = Undo -> load Board from backup-FEN
-        # if so switch players, check if castle rights are still valid
+        # move was illegal if king is attacked AFTER move
+        # Undo -> load Board from backup-FEN
+        if self.stalemate():
+            self.from_fen(backup)
+            raise ValueError("Illegal move -> Stalemate!")
+
+        # if a rook was moved, update castle rights
+        if from_piece == 'R':  # white
+            if from_square_mask == BB_A1:
+                self.white_queen_side_castle_right = False
+            elif from_square_mask == BB_A8:
+                self.white_king_side_castle_right = False
+
+        elif from_piece == 'r':  # black
+            if from_square_mask == BB_A1:
+                self.black_queen_side_castle_right = False
+            elif from_square_mask == BB_A8:
+                self.black_king_side_castle_right = False
+
+        # else the move was legal
+        # switch players
         self.active_player = not self.active_player
+        # update move count
+        self.half_move_clock += 1
+        if capture:
+            self.half_move_clock = 0
+        if self.active_player:
+            self.move_number += 1
 
 
 class Move:

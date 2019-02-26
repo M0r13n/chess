@@ -186,8 +186,51 @@ class TestPawnAttacks(BaseTest):
         assert b.attacked_fields(1) == int('00010100', 2) << 40
 
 
+class TestMoves(BaseTest):
+    def __init__(self):
+        super(TestMoves, self).__init__(name="Test moves")
+
+    def run(self):
+        from chess import Board, Move
+
+        b = Board()
+        assert b.to_fen() == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        assert len(list(b.gen_pseudo_legal_moves())) == 20
+        b.make_move(Move.from_uci("e2e4"))
+        assert b.move_number == 1
+        assert b.half_move_clock == 1
+        assert not b.active_player
+        assert b.to_fen() == 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 1 1'
+        assert len(list(b.gen_pseudo_legal_moves())) == 20
+        b.make_move(Move.from_uci("d7d5"))
+        assert b.move_number == 2
+        assert b.half_move_clock == 2
+        assert b.active_player
+
+        # EN PASSANT
+        b = Board("rnbqkbnr/ppp1p1pp/8/3pPp2/8/8/PPPP1PPP/RNBQKBNR w KQkq f6 0 3")
+        b.make_move(Move.from_uci("e5f6"))
+        assert b.to_fen() == "rnbqkbnr/ppp1p1pp/5P2/3p4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 3"
+
+        b = Board("rnbqk2r/ppp3pp/3bpP1n/3p4/8/BP3Q2/P1PP1PPP/RN2KBNR b KQkq - 2 6")
+        assert Move.from_uci("e8g8") in b.gen_pseudo_legal_moves()
+        b.make_move(Move.from_uci("e8g8"))
+        assert b.to_fen() == "rnbq1rk1/ppp3pp/3bpP1n/3p4/8/BP3Q2/P1PP1PPP/RN2KBNR w KQ - 3 7"
+
+        b = Board("rnbq1rk1/p1p3pp/3bpP1n/1p1p4/8/BPN2Q2/P1PP1PPP/R3KBNR w KQ b6 0 8")
+        b.make_move(Move.from_uci("e1c1"))
+        assert b.to_fen() == "rnbq1rk1/p1p3pp/3bpP1n/1p1p4/8/BPN2Q2/P1PP1PPP/2KR1BNR b - - 1 8"
+
+        try:
+            b.make_move(Move.from_uci("e1c1"))
+        except ValueError:
+            pass
+        finally:
+            assert b.to_fen() == "rnbq1rk1/p1p3pp/3bpP1n/1p1p4/8/BPN2Q2/P1PP1PPP/2KR1BNR b - - 1 8"
+
+
 TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestFENNotation(), TestKingAttacks(), TestQueenAttacks(),
-         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks()]
+         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks(), TestMoves(), ]
 
 
 def run_all_tests():
