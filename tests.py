@@ -229,8 +229,41 @@ class TestMoves(BaseTest):
             assert b.to_fen() == "rnbq1rk1/p1p3pp/3bpP1n/1p1p4/8/BPN2Q2/P1PP1PPP/2KR1BNR b - - 1 8"
 
 
+class TestCheckmate(BaseTest):
+    def __init__(self):
+        super(TestCheckmate, self).__init__(name="Test if checkmate detection works")
+
+    def run(self):
+        from chess import Board, Move
+
+        b = Board("rnbqkbnr/ppp1pppp/8/1B1p4/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2")
+        assert b.stalemate()
+        assert not b.checkmate()
+
+        b = Board("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3")
+        assert b.stalemate()
+        assert b.checkmate()
+
+
+class ShortestGame(BaseTest):
+    def __init__(self):
+        super(ShortestGame, self).__init__(name="Test full game + checkmate")
+
+    def run(self):
+        from chess import Board, Move
+
+        b = Board()
+        b.make_move(Move.from_uci("f2f3"))
+        b.make_move(Move.from_uci("e7e6"))
+
+        b.make_move(Move.from_uci("g2g4"))
+        b.make_move(Move.from_uci("d8h4"))
+
+        assert (b.checkmate())
+
+
 TESTS = [LSBTest(), MSBTest(), ScanLSBFirstTest(), SetBit(), TestFENNotation(), TestKingAttacks(), TestQueenAttacks(),
-         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks(), TestMoves(), ]
+         TestBishopAttacks(), TestKnightAttacks(), TestPawnAttacks(), TestMoves(), ShortestGame(), TestCheckmate(), ]
 
 
 def run_all_tests():
@@ -245,7 +278,3 @@ def run_all_tests():
 if __name__ == '__main__':
     run_all_tests()
     print("SUCCESS!")
-
-'rnb1kb1r/pppp1ppp/B3p2n/8/4P2q/7N/PPPP1PPP/RNBQK2R w KQkq - 0 1'
-
-'rnb2r1k/pppp1ppp/B6n/4p3/4P2q/b6N/PPPP1PPP/RNBQ1R1K w KQkq - 0 1'

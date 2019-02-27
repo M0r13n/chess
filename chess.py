@@ -86,6 +86,11 @@ BB_A8 = 0x8000000000000000
 
 # PRIVATE STATIC METHODS
 
+
+def _mask(x):
+    return SQUARE_MASK[x]
+
+
 def _lsb(b: B_BOARD):
     return (b & -b).bit_length() - 1
 
@@ -116,6 +121,14 @@ def _set_bit(b: B_BOARD, index, x):
     if x:
         b |= mask
     return b
+
+
+def _put(b, v):
+    return b | v
+
+
+def _pop(b, v):
+    return b & ~v
 
 
 def _shift_down(b: B_BOARD):
@@ -183,12 +196,10 @@ def _traverse_delta(square, delta, occupied, enemies):
     while True:
         sq = delta(sq)
         if sq & occupied:
-            break
+            return moves
         moves |= sq
         if sq & enemies or sq == 0:
-            break
-
-    return moves
+            return moves
 
 
 # MOVE GENERATION CONSTANTS
@@ -257,7 +268,7 @@ def _knight_move(knight, occupied, *args):
     return moves & ~occupied
 
 
-def _knight_attacks(knight):
+def _knight_attacks(knight, *args):
     moves = 0
     for move in KNIGHT_MOVS:
         moves |= move(knight)
@@ -442,23 +453,25 @@ class Board:
     def _filter_pieces_by_side(self, player):
         return [v for k, v in self.PIECES.items() if (k.isupper() if player else k.islower())]
 
-    def attacked_fields(self, by_player) -> int:
+    def attacked_fields(self, by_player, enemies=None) -> int:
         """
         this methods returns every field that is currently under attack by the specified player
-        :param by_player:
+        :param by_player: change player
+        :param enemies: provide different enemies
         :return:
         """
         attacked_fields = 0
         occupied = self._all_white_pieces() if by_player else self._all_black_pieces()
-        enemies = self._all_black_pieces() if by_player else self._all_white_pieces()
+        if enemies is None:
+            enemies = self._all_black_pieces() if by_player else self._all_white_pieces()
         king, queens, knights, bishops, rooks, pawns = self._filter_pieces_by_side(by_player)
 
         attacked_fields |= _king_moves(king)
-        attacked_fields |= _queen_moves(queens, occupied, enemies)
-        attacked_fields |= _bishop_moves(bishops, occupied, enemies)
-        attacked_fields |= _rook_moves(rooks, occupied, enemies)
-        attacked_fields |= _knight_attacks(knights)
         attacked_fields |= _pawn_attacks(pawns, by_player)
+
+        for p, m in zip((queens, bishops, rooks, knights), (_queen_moves, _bishop_moves, _rook_moves, _knight_attacks)):
+            for i in _scan_lsb_first(p):
+                attacked_fields |= m(SQUARE_MASK[i], occupied, enemies)
 
         return attacked_fields
 
@@ -520,10 +533,29 @@ class Board:
                 return k
 
     def stalemate(self, player=None) -> bool:
-        p = self.active_player
-        if player:
-            p = player
-        return self.attacked_fields(not player) & self.PIECES['K' if p else 'k']
+        if player is None:
+            player = self.active_player
+        return self.attacked_fields(not player) & self.PIECES['K' if player else 'k']
+
+    def checkmate(self, player=None):
+        if player is None:
+            player = self.active_player
+        occupied = self._all_white_pieces() if player else self._all_black_pieces()
+        king = self.PIECES['K' if player else 'k']
+
+        if self.stalemate(player):
+            for m in self.gen_pseudo_legal_moves(player):
+                from_sq, to_sq = m.from_square, m.to_square
+
+                if from_sq == _lsb(king) + 1:
+                    continue
+
+                occupied = _put(occupied, _mask(to_sq))
+                occupied = _pop(occupied, _mask(from_sq))
+
+                if not self.attacked_fields(not player, occupied) & king:
+                    return False
+        return True
 
     def make_move(self, move):
         """
@@ -549,11 +581,8 @@ class Board:
         def pop(k, v):
             self.PIECES[k] &= ~v
 
-        def mask(x):
-            return SQUARE_MASK[x]
-
         from_square, to_square = move.from_square, move.to_square
-        from_square_mask, to_square_mask = mask(from_square), mask(to_square)
+        from_square_mask, to_square_mask = _mask(from_square), _mask(to_square)
         from_piece, to_piece = self.get_piece(from_square), self.get_piece(to_square)
 
         # move and remove hostile piece if it exists
@@ -594,9 +623,9 @@ class Board:
         if from_piece == 'P' or from_piece == 'p':
             # kill
             if ep:
-                if to_square_mask == mask(SQ_NUM[ep]):
+                if to_square_mask == _mask(SQ_NUM[ep]):
                     pop('p' if self.active_player else 'P',
-                        mask(to_square - 8 if self.active_player else to_square + 8))
+                        _mask(to_square - 8 if self.active_player else to_square + 8))
                     capture = True
             # move
             if abs(from_square - to_square) > 8:
