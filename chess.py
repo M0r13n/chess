@@ -6,6 +6,8 @@ A chess game
 from itertools import groupby
 import re
 
+# CONSTANTS
+
 UNIVERSE = 0xffffffffffffffff
 EMPTY = 0
 
@@ -81,6 +83,8 @@ BB_A1 = 0x80
 BB_H8 = 0x100000000000000
 BB_A8 = 0x8000000000000000
 
+
+# PRIVATE STATIC METHODS
 
 def _lsb(b: B_BOARD):
     return (b & -b).bit_length() - 1
@@ -163,6 +167,16 @@ def _shift_left_down(b: B_BOARD):
 
 
 def _traverse_delta(square, delta, occupied, enemies):
+    """
+    Traverse a direction starting from current square.
+    This method stops if a pos is occupied and breaks if
+    an enemy is met.
+    :param square: starting square
+    :param delta: direction as a shift_method
+    :param occupied: bit mask of all occupied places
+    :param enemies: bit mask of all enemies
+    :return:
+    """
     moves = 0
     sq = square
 
@@ -177,6 +191,8 @@ def _traverse_delta(square, delta, occupied, enemies):
     return moves
 
 
+# MOVE GENERATION CONSTANTS
+
 STEPS = [_shift_right, _shift_left, _shift_up, _shift_down]
 SLIDES = [_shift_right_up, _shift_right_down, _shift_left_down, _shift_left_up]
 DIRECTIONS = STEPS + SLIDES
@@ -185,24 +201,26 @@ KNIGHT_MOVS = [
     lambda x: _shift_left(_shift_up_up(x)),
     lambda x: _shift_right(_shift_up_up(x)),
     lambda x: _shift_right(_shift_down_down(x)),
-    lambda x: _shift_up(_shift_right_right(x)),  # bastard
+    lambda x: _shift_up(_shift_right_right(x)),
     lambda x: _shift_up(_shift_left_left(x)),
     lambda x: _shift_down(_shift_right_right(x)),
     lambda x: _shift_down(_shift_left_left(x)),
 ]
 
 
+# PRIVATE MOVE GENERATION METHODS
+
 def _king_moves(king):
     moves = 0
     for mov in DIRECTIONS:
-        moves |= mov(king)  # King
+        moves |= mov(king)
     return moves
 
 
 def _queen_moves(queen, occupied, enemies):
     moves = 0
     for mov in DIRECTIONS:
-        moves |= _traverse_delta(queen, mov, occupied, enemies)  # queen
+        moves |= _traverse_delta(queen, mov, occupied, enemies)
     return moves
 
 
@@ -256,12 +274,15 @@ def b_board_to_str(b: B_BOARD) -> str:
 
 class Board:
     """
-    This class stores all pieces for a game
+    A Board class representing a chess game.
+    There are 12 Bitboards: 6 for each player and 1 for each piece-type.
+    The Bitboards stored inside a dict and are accessed by their
+    corresponding piece-symbol.
     """
 
     def __init__(self, fen=None):
         """
-        new game
+        Create a new game
         """
         self.PIECES = {
             'p': 0,
@@ -278,7 +299,7 @@ class Board:
             'R': 0
         }
 
-        # state
+        # STATE
         self.active_player = 1
         self.black_king_side_castle_right = True
         self.black_queen_side_castle_right = True
@@ -287,14 +308,20 @@ class Board:
         self.ep_move = None
         self.half_move_clock = 0
         self.move_number = 0
-
         fen = BASEBOARD if fen is None else fen
-        self.from_fen(fen)
+        self.from_fen(fen)  # load game
 
     def __repr__(self):
+        """
+        returns a fen representation of the boards current state
+        """
         return self.to_fen()
 
     def __str__(self):
+        """
+        returns a nicely formatted board representation, including unicode
+        """
+
         def name_bar() -> str:
             return '{offset}{row}{offset}\n'.format(offset=2 * ' ', row=' '.join(SQUARE_NAMES))
 
@@ -310,6 +337,9 @@ class Board:
         return t
 
     def reset(self):
+        """
+        initialize default values
+        """
         self.PIECES = {
             'k': 0,
             'q': 0,
@@ -324,7 +354,7 @@ class Board:
             'R': 0,
             'P': 0
         }
-        # state
+        # STATE
         self.active_player = 1
         self.black_king_side_castle_right = True
         self.black_queen_side_castle_right = True
@@ -360,7 +390,7 @@ class Board:
         self.half_move_clock = int(text[4])
         self.move_number = int(text[5])
 
-    def to_fen(self):
+    def to_fen(self) -> str:
         s = 64 * ['.']
 
         # place all piece symbols
@@ -412,7 +442,7 @@ class Board:
     def _filter_pieces_by_side(self, player):
         return [v for k, v in self.PIECES.items() if (k.isupper() if player else k.islower())]
 
-    def attacked_fields(self, by_player) -> B_BOARD:
+    def attacked_fields(self, by_player) -> int:
         """
         this methods returns every field that is currently under attack by the specified player
         :param by_player:
@@ -490,9 +520,6 @@ class Board:
                 return k
 
     def stalemate(self, player=None) -> bool:
-        """
-        Stalemate == False
-        """
         p = self.active_player
         if player:
             p = player
@@ -500,8 +527,15 @@ class Board:
 
     def make_move(self, move):
         """
-        NOT YET FINISHED
-        TODO
+        Make a move.
+        This includes:
+        - checking if move is legal
+        - checking castling rights
+        - change pos of target piece
+        - replace hostile pieces (if any)
+        - check for ep and castle
+
+        If a move is detected to be illegal the initial state will be restored
         """
         if move not in list(self.gen_pseudo_legal_moves()):
             raise ValueError("Invalid Move")
@@ -566,8 +600,7 @@ class Board:
                     capture = True
             # move
             if abs(from_square - to_square) > 8:
-                self.ep_move = list(SQ_NUM.keys())[
-                    list(SQ_NUM.values()).index(to_square - 8 if self.active_player else to_square + 8)]
+                self.ep_move = F_NAME[to_square - 8 if self.active_player else to_square + 8]
 
         # move was illegal if king is attacked AFTER move
         # Undo -> load Board from backup-FEN
