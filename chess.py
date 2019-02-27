@@ -653,6 +653,10 @@ class Move:
     def from_uci(uci):
         uci = uci.lower()
         m = re.match('([a-h][1-8])([a-h][1-8])(.)?', uci)
+
+        if m is None:
+            raise ValueError("Invalid uci string provided!")
+
         promotion = m.group(3)
         if promotion is not None and promotion not in PROMOTION:
             raise ValueError("Invalid Promotion Piece provided!")
