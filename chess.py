@@ -52,7 +52,7 @@ FIELDS = [
     A1, B1, C1, D1, E1, F1, G1, H1,
 ] = range(63, -1, -1)
 
-SQUARES = {
+SQ_NUM = {
     'a1': A1, 'a2': A2, 'a3': A3, 'a4': A4, 'a5': A5, 'a6': A6, 'a7': A7, 'a8': A8,
     'b1': B1, 'b2': B2, 'b3': B3, 'b4': B4, 'b5': B5, 'b6': B6, 'b7': B7, 'b8': B8,
     'c1': C1, 'c2': C2, 'c3': C3, 'c4': C4, 'c5': C5, 'c6': C6, 'c7': C7, 'c8': C8,
@@ -62,6 +62,8 @@ SQUARES = {
     'g1': G1, 'g2': G2, 'g3': G3, 'g4': G4, 'g5': G5, 'g6': G6, 'g7': G7, 'g8': G8,
     'h1': H1, 'h2': H2, 'h3': H3, 'h4': H4, 'h5': H5, 'h6': H6, 'h7': H7, 'h8': H8,
 }
+
+F_NAME = dict([(v, k) for k, v in SQ_NUM.items()])
 
 SQUARE_MASK = [1 << sq for sq in range(64)]
 
@@ -380,9 +382,9 @@ class Board:
         s.append('k' if self.black_king_side_castle_right else '')
         s.append('q' if self.black_queen_side_castle_right else '')
         s.append('-' if not any((self.black_queen_side_castle_right,
-                                self.black_king_side_castle_right,
-                                self.white_queen_side_castle_right,
-                                self.white_king_side_castle_right
+                                 self.black_king_side_castle_right,
+                                 self.white_queen_side_castle_right,
+                                 self.white_king_side_castle_right
                                  )) else '')
         s.append(' {} '.format(self.ep_move if self.ep_move else '-'))
         s.append('{} '.format(self.half_move_clock))
@@ -456,7 +458,7 @@ class Board:
 
             # ep move
             if self.ep_move:
-                move = _pawn_attacks(SQUARE_MASK[p], player) & SQUARE_MASK[SQUARES[self.ep_move]]
+                move = _pawn_attacks(SQUARE_MASK[p], player) & SQUARE_MASK[SQ_NUM[self.ep_move]]
                 if move:
                     yield Move(p, _lsb(move))
 
@@ -558,14 +560,14 @@ class Board:
         if from_piece == 'P' or from_piece == 'p':
             # kill
             if ep:
-                if to_square_mask == mask(SQUARES[ep]):
+                if to_square_mask == mask(SQ_NUM[ep]):
                     pop('p' if self.active_player else 'P',
                         mask(to_square - 8 if self.active_player else to_square + 8))
                     capture = True
             # move
             if abs(from_square - to_square) > 8:
-                self.ep_move = list(SQUARES.keys())[
-                    list(SQUARES.values()).index(to_square - 8 if self.active_player else to_square + 8)]
+                self.ep_move = list(SQ_NUM.keys())[
+                    list(SQ_NUM.values()).index(to_square - 8 if self.active_player else to_square + 8)]
 
         # move was illegal if king is attacked AFTER move
         # Undo -> load Board from backup-FEN
@@ -606,8 +608,8 @@ class Move:
 
     @property
     def uci(self):
-        keys = list(SQUARES.keys())
-        vals = list(SQUARES.values())
+        keys = list(SQ_NUM.keys())
+        vals = list(SQ_NUM.values())
         return "{f}{t}{p}".format(
             f=keys[vals.index(self.from_square)],
             t=keys[vals.index(self.to_square)],
@@ -621,7 +623,7 @@ class Move:
         promotion = m.group(3)
         if promotion is not None and promotion not in PROMOTION:
             raise ValueError("Invalid Promotion Piece provided!")
-        return Move(SQUARES[m.group(1)], SQUARES[m.group(2)], bool(promotion))
+        return Move(SQ_NUM[m.group(1)], SQ_NUM[m.group(2)], bool(promotion))
 
     def __eq__(self, other):
         return (self.from_square == other.from_square and
